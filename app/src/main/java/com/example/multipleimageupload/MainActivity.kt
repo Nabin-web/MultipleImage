@@ -9,8 +9,18 @@ import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
+import android.util.Log
+import android.webkit.MimeTypeMap
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import com.example.multipleimageupload.repository.imageRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
@@ -21,11 +31,14 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var btnAdd: Button
     private lateinit var Layout: LinearLayout
+    private lateinit var btnSave: Button
 
     private var REQUEST_GALLERY_CODE = 0
     private var REQUEST_CAMERA_CODE = 1
     private var imageUrl: String? = null
     var count = 1
+    private var images = mutableListOf<MultipartBody.Part>()
+    private var imageList = mutableListOf<String>()
 
     companion object {
         lateinit var newView: ImageView
@@ -39,11 +52,14 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         btnAdd = findViewById(R.id.btnAdd)
+        btnSave = findViewById(R.id.btnSave)
+
         Layout = findViewById(R.id.myLayout)
 
         btnAdd.setOnClickListener {
             var count = 1
             newView = ImageView(this)
+//            newView.setTag()
             Layout.addView(newView)
             newView.layoutParams.height= 300
             newView.layoutParams.width = 300
@@ -54,12 +70,17 @@ class MainActivity : AppCompatActivity() {
             newView.setImageResource(R.drawable.ic_choose)
             newView.setOnClickListener {
                 loadPopUpMenu(newView)
+            }
 
+            btnSave.setOnClickListener {
+                uploadImage(imageList)
             }
 
 
         }
     }
+
+
 
     private fun loadPopUpMenu(newView: ImageView) {
         val popupMenu = PopupMenu(this, newView)
@@ -90,9 +111,9 @@ class MainActivity : AppCompatActivity() {
 
 
     override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
+            requestCode: Int,
+            permissions: Array<out String>,
+            grantResults: IntArray
     ) {
         if (requestCode == SELECT_FRONT_IMAGE_FROM_GALLERY_REQUEST_CODE) {
             if (grantResults.size > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
@@ -101,9 +122,9 @@ class MainActivity : AppCompatActivity() {
                 startActivityForResult(intent, SELECT_FRONT_IMAGE_FROM_GALLERY_REQUEST_CODE)
             } else {
                 Toast.makeText(
-                    applicationContext,
-                    "You don't have to access file location",
-                    Toast.LENGTH_SHORT
+                        applicationContext,
+                        "You don't have to access file location",
+                        Toast.LENGTH_SHORT
                 ).show()
             }
             return
@@ -132,12 +153,11 @@ class MainActivity : AppCompatActivity() {
                 val timeStamp: String = SimpleDateFormat("yyyyMMdd_HHmmss").format(Date())
                 val file = bitmapToFile(imageBitmap, "$timeStamp.jpg")
                 imageUrl = file!!.absolutePath
+                imageList.add(imageUrl!!)  //add image name to mutable list
                 newView.setImageBitmap(BitmapFactory.decodeFile(imageUrl))
             }
         }
     }
-
-
 
     private fun bitmapToFile(
             bitmap: Bitmap,
@@ -152,7 +172,7 @@ class MainActivity : AppCompatActivity() {
             file.createNewFile()
             //Convert bitmap to byte array
             val bos = ByteArrayOutputStream()
-            bitmap.compress(Bitmap.CompressFormat.PNG, 0, bos) // YOU can also save it in JPEG
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 0, bos) // YOU can also save it in JPEG
             val bitMapData = bos.toByteArray()
             //write the bytes in file
             val fos = FileOutputStream(file)
@@ -166,4 +186,49 @@ class MainActivity : AppCompatActivity() {
             file // it will return null
         }
     }
-}
+
+
+
+    private fun uploadImage(imageList: MutableList<String>) {
+        for(i in imageList) {
+            if (imageUrl != null) {
+                val file = File(i!!)
+
+                var extension = MimeTypeMap.getFileExtensionFromUrl(imageUrl)
+                var MimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
+                val reqFile =
+                        RequestBody.create(MediaType.parse(MimeType), file)
+                var body =
+                        MultipartBody.Part.createFormData("file", file.name, reqFile)
+                images.add(body)
+
+            }
+        }
+
+
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val imageRepo = imageRepository()
+                    val response = imageRepo.uploadImage(images)
+                    if (response.success == true) {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(this@MainActivity, "Uploaded", Toast.LENGTH_SHORT)
+                                .show()
+
+                            images.clear()
+                            imageList.clear()
+                        }
+
+                    }
+                } catch (ex: Exception) {
+                    withContext(Dispatchers.Main) {
+                        Log.d("Mero Error ", ex.localizedMessage)
+                        Toast.makeText(this@MainActivity,
+                            ex.localizedMessage,
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+            }
+        }
+    }

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent"
+    android:layout_height="105dp"
+    >
+
+    <ImageView
+        android:id="@+id/imageView1"
+        android:src="@drawable/ic_choose"
+        android:layout_width="100dp"
+        android:layout_marginHorizontal="@android:dimen/app_icon_size"
+        android:layout_height="100dp"
+        android:layout_marginBottom="10dp"/>
+
+</LinearLayout>
