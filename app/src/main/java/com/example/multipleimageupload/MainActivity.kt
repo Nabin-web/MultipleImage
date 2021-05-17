@@ -1,11 +1,11 @@
 package com.example.multipleimageupload
 
-import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
@@ -13,6 +13,7 @@ import android.util.Log
 import android.webkit.MimeTypeMap
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.FileProvider
 import com.example.multipleimageupload.repository.imageRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -27,6 +28,7 @@ import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.*
 
+
 class MainActivity : AppCompatActivity() {
 
     private lateinit var btnAdd: Button
@@ -39,10 +41,8 @@ class MainActivity : AppCompatActivity() {
     var count = 1
     private var images = mutableListOf<MultipartBody.Part>()
     private var imageList = mutableListOf<String>()
+    lateinit var newView: ImageView
 
-    companion object {
-        lateinit var newView: ImageView
-    }
 
 
     val SELECT_FRONT_IMAGE_FROM_GALLERY_REQUEST_CODE = 999;
@@ -152,6 +152,12 @@ class MainActivity : AppCompatActivity() {
                 val imageBitmap = data.extras?.get("data") as Bitmap
                 val timeStamp: String = SimpleDateFormat("yyyyMMdd_HHmmss").format(Date())
                 val file = bitmapToFile(imageBitmap, "$timeStamp.jpg")
+                val photoURI: Uri = FileProvider.getUriForFile(this,
+                        "com.example.android.fileprovider",
+                        file!!)
+
+                data.putExtra(MediaStore.EXTRA_OUTPUT, photoURI)
+
                 imageUrl = file!!.absolutePath
                 imageList.add(imageUrl!!)  //add image name to mutable list
                 newView.setImageBitmap(BitmapFactory.decodeFile(imageUrl))
@@ -172,7 +178,7 @@ class MainActivity : AppCompatActivity() {
             file.createNewFile()
             //Convert bitmap to byte array
             val bos = ByteArrayOutputStream()
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 0, bos) // YOU can also save it in JPEG
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, bos) // YOU can also save it in JPEG
             val bitMapData = bos.toByteArray()
             //write the bytes in file
             val fos = FileOutputStream(file)
@@ -224,8 +230,8 @@ class MainActivity : AppCompatActivity() {
                     withContext(Dispatchers.Main) {
                         Log.d("Mero Error ", ex.localizedMessage)
                         Toast.makeText(this@MainActivity,
-                            ex.localizedMessage,
-                            Toast.LENGTH_SHORT
+                                ex.localizedMessage,
+                                Toast.LENGTH_SHORT
                         ).show()
                     }
                 }
